@@ -1,8 +1,20 @@
 import { useState, useEffect, useRef } from "react";
-import { Text, View, Button, Platform } from "react-native";
-import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
-import Constants from "expo-constants";
+import {
+  StyledView,
+  StyledText,
+  StyledTouchableOpacity,
+  StyledScrollView,
+  StyledIcon,
+} from "./utils/nativewind-styled";
+import DisplayNotification from "./components/DisplayNotification";
+import DisplayNotificationResponse from "./components/DisplayNotificationResponse";
+import {
+  registerForPushNotificationsAsync,
+  schedulePushNotification,
+} from "./utils/notification-utils";
+import DisplayExpoToken from "./components/DisplayExpoToken";
+import useStore from "./utils/store";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -14,10 +26,12 @@ Notifications.setNotificationHandler({
 
 export default function App() {
   const [expoPushToken, setExpoPushToken] = useState<String | undefined>("");
-  const [notification, setNotification] =
-    useState<Notifications.Notification | null>(null);
   const notificationListener = useRef<Notifications.Subscription>();
   const responseListener = useRef<Notifications.Subscription>();
+  const [setNotification, setNotificationResponse] = useStore((state) => [
+    state.setNotification,
+    state.setNotificationResponse,
+  ]);
 
   useEffect(() => {
     registerForPushNotificationsAsync().then((token) =>
@@ -27,11 +41,12 @@ export default function App() {
     notificationListener.current =
       Notifications.addNotificationReceivedListener((notification) => {
         setNotification(notification);
+        console.log(notification);
       });
 
     responseListener.current =
       Notifications.addNotificationResponseReceivedListener((response) => {
-        console.log(response);
+        setNotificationResponse(response);
       });
 
     return () => {
@@ -47,78 +62,33 @@ export default function App() {
   }, []);
 
   return (
-    <View
-      style={{
-        flex: 1,
-        alignItems: "center",
-        justifyContent: "space-around",
-      }}
-    >
-      <Text selectable={true}>Your expo push token: {expoPushToken}</Text>
-      <View style={{ alignItems: "center", justifyContent: "center" }}>
-        <Text>
-          Title: {notification && notification.request.content.title}{" "}
-        </Text>
-        <Text>Body: {notification && notification.request.content.body}</Text>
-        <Text>
-          Data:{" "}
-          {notification && JSON.stringify(notification.request.content.data)}
-        </Text>
-      </View>
-      <Button
-        title="Press to schedule a notification"
-        onPress={async () => {
-          await schedulePushNotification();
-        }}
-      />
-    </View>
+    <StyledView className="flex-1 items-center mt-20 px-4" style={{ gap: 30 }}>
+      <DisplayExpoToken expoPushToken={expoPushToken} />
+
+      <StyledView className="flex-row items-center" style={{ gap: 10 }}>
+        <StyledTouchableOpacity
+          className="bg-purple-600 py-2 px-3 rounded-lg"
+          onPress={schedulePushNotification}
+        >
+          <StyledText className="text-xl text-white font-bold">
+            Schedule Notification
+          </StyledText>
+        </StyledTouchableOpacity>
+        <StyledTouchableOpacity
+          onPress={() => {
+            setNotification(null);
+            setNotificationResponse(null);
+          }}
+        >
+          <StyledIcon name="trash" size={24} className="text-gray-400" />
+        </StyledTouchableOpacity>
+      </StyledView>
+      <StyledScrollView className="flex-1 w-full">
+        <StyledView style={{ gap: 30 }}>
+          <DisplayNotification />
+          <DisplayNotificationResponse />
+        </StyledView>
+      </StyledScrollView>
+    </StyledView>
   );
-}
-
-async function schedulePushNotification() {
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: "You've got mail! 📬",
-      body: "Here is the notification body",
-      data: { data: "goes here" },
-    },
-    trigger: { seconds: 2 },
-  });
-}
-
-async function registerForPushNotificationsAsync() {
-  if (!Constants.expoConfig?.extra?.eas.projectId) return;
-
-  if (Platform.OS === "android") {
-    await Notifications.setNotificationChannelAsync("default", {
-      name: "default",
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: "#FF231F7C",
-    });
-  }
-
-  if (Device.isDevice) {
-    const { status: existingStatus } =
-      await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-    if (existingStatus !== "granted") {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-    if (finalStatus !== "granted") {
-      alert("Failed to get push token for push notification!");
-      return;
-    }
-    const token = (
-      await Notifications.getExpoPushTokenAsync({
-        projectId: Constants.expoConfig.extra.eas.projectId,
-      })
-    ).data;
-    console.log(token);
-    return token;
-  } else {
-    alert("Must use physical device for Push Notifications");
-    return;
-  }
 }
