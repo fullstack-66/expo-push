@@ -5,6 +5,7 @@ import {
   ImageBackground,
   SafeAreaView,
   ScrollView,
+  StatusBar
 } from "react-native";
 import { styled } from "nativewind";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -16,3 +17,4 @@ export const StyledIcon = styled(Ionicons);
 export const StyledImageBackground = styled(ImageBackground);
 export const StyledSafeAreaView = styled(SafeAreaView);
 export const StyledScrollView = styled(ScrollView);
+export const StyledStatusBar = styled(StatusBar);
